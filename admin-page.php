@@ -115,6 +115,10 @@ settings_errors('dev_cfg');
 					applyFilters();
 				});
 				applyFilters();
+				// Show apply summary popup if present
+				<?php $popup = get_transient('dev_cfg_apply_summary_popup'); if ($popup) { delete_transient('dev_cfg_apply_summary_popup'); ?>
+				alert(<?php echo json_encode($popup); ?>);
+				<?php } ?>
 			});
 		})();
 		</script>

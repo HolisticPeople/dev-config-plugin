@@ -46,6 +46,7 @@ class DevCfgPlugin {
 			'plugin_policies' => [],
 			'other_actions' => [
 				'noindex' => true, // default checked
+				'fluent_smtp_simulation_on' => true, // default checked
 			],
 			'ui_prefs' => [
 				'preserve_refresh' => true,
@@ -148,6 +149,22 @@ class DevCfgPlugin {
 
 			$results = self::apply_configuration($policies, $actions);
 			$summary = self::format_results_notice($results);
+			// Build popup summary counts
+			$enabledCount = 0; $disabledCount = 0; $pluginFailed = 0;
+			foreach (dev_cfg_array_get($results, 'plugins', []) as $res) {
+				if ($res === 'activated') { $enabledCount++; }
+				elseif ($res === 'deactivated') { $disabledCount++; }
+				elseif (is_string($res) && (stripos($res, 'error') !== false || stripos($res, 'failed') !== false || stripos($res, 'missing') !== false)) { $pluginFailed++; }
+			}
+			$actionsOk = 0; $actionsFailed = 0; $actionLines = [];
+			foreach (dev_cfg_array_get($results, 'actions', []) as $key => $res) {
+				$actionLines[] = $key . ': ' . $res;
+				if (is_string($res) && (stripos($res, 'error') !== false || stripos($res, 'failed') !== false)) { $actionsFailed++; } else { $actionsOk++; }
+			}
+			$popup = "Plugins enabled: $enabledCount\nPlugins disabled: $disabledCount\nPlugin failures: $pluginFailed\nActions success: $actionsOk, failed: $actionsFailed";
+			if ($actionLines) { $popup .= "\n\nActions detail:\n" . implode("\n", $actionLines); }
+			set_transient('dev_cfg_apply_summary_popup', $popup, 60);
+
 			add_settings_error('dev_cfg', 'applied', $summary, 'updated');
 		}
 	}

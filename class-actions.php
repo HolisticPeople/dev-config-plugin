@@ -16,6 +16,11 @@ class Actions {
 				'description' => 'Turns on FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = yes).',
 				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_on'],
 			],
+			'fluent_smtp_simulation_off' => [
+				'label' => 'FluentSMTP: Disable Email Simulation (allow sends)',
+				'description' => 'Turns off FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = no).',
+				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_off'],
+			],
 		];
 	}
 
@@ -47,6 +52,20 @@ class Actions {
 		$settings['misc']['simulate_emails'] = 'yes';
 		update_option($optName, $settings);
 		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to yes'];
+	}
+
+	public static function run_fluent_smtp_simulation_off() {
+		$optName = 'fluentmail-settings';
+		$settings = get_option($optName, []);
+		if (!is_array($settings)) {
+			return ['ok' => false, 'message' => 'fluentmail-settings option not found'];
+		}
+		if (!isset($settings['misc']) || !is_array($settings['misc'])) {
+			$settings['misc'] = [];
+		}
+		$settings['misc']['simulate_emails'] = 'no';
+		update_option($optName, $settings);
+		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to no'];
 	}
 }
 
