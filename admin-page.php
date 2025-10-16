@@ -138,12 +138,11 @@ settings_errors('dev_cfg');
 					<td><strong><?php echo esc_html($meta['label']); ?></strong> <code><?php echo esc_html($key); ?></code></td>
 					<td><?php echo esc_html($meta['description']); ?></td>
 					<td>
-						<?php if ($key === 'fluent_smtp_simulation_on' || $key === 'fluent_smtp_simulation_off'): ?>
+					<?php if ($key === 'fluent_smtp_simulation'): ?>
 							<?php
-								$mode = '';
-								if (!empty($ui['other_actions']['fluent_smtp_simulation'])) { $mode = $ui['other_actions']['fluent_smtp_simulation']; }
+							$mode = isset($ui['other_actions']['fluent_smtp_simulation']) ? $ui['other_actions']['fluent_smtp_simulation'] : 'enable';
 							?>
-							<label style="margin-right:8px;"><input type="radio" name="dev_cfg_action[fluent_smtp_simulation]" value="ignore" <?php checked($mode === 'ignore' || $mode === ''); ?> /> Ignore</label>
+						<label style="margin-right:8px;"><input type="radio" name="dev_cfg_action[fluent_smtp_simulation]" value="ignore" <?php checked($mode === 'ignore'); ?> /> Ignore</label>
 							<label style="margin-right:8px;"><input type="radio" name="dev_cfg_action[fluent_smtp_simulation]" value="enable" <?php checked($mode === 'enable'); ?> /> Enable</label>
 							<label><input type="radio" name="dev_cfg_action[fluent_smtp_simulation]" value="disable" <?php checked($mode === 'disable'); ?> /> Disable</label>
 						<?php else: ?>

@@ -16,15 +16,10 @@ class Actions {
 				'description' => 'Removes debug.log and rotated variants from wp-content to reduce noise on staging.',
 				'runner' => [__CLASS__, 'run_delete_debug_logs'],
 			],
-			'fluent_smtp_simulation_on' => [
-				'label' => 'FluentSMTP: Enable Email Simulation (block sends)',
-				'description' => 'Turns on FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = yes).',
-				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_on'],
-			],
-			'fluent_smtp_simulation_off' => [
-				'label' => 'FluentSMTP: Disable Email Simulation (allow sends)',
-				'description' => 'Turns off FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = no).',
-				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_off'],
+			'fluent_smtp_simulation' => [
+				'label' => 'FluentSMTP Email Simulation',
+				'description' => 'Control FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails).',
+				'runner' => [__CLASS__, 'run_fluent_smtp_simulation'],
 			],
 		];
 	}
@@ -102,6 +97,13 @@ class Actions {
 		$settings['misc']['simulate_emails'] = 'no';
 		update_option($optName, $settings);
 		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to no', 'changed' => ($before !== 'no')];
+	}
+
+	public static function run_fluent_smtp_simulation($mode = 'enable') {
+		if ($mode === 'ignore') {
+			return ['ok' => true, 'message' => 'FluentSMTP simulation ignored', 'changed' => false];
+		}
+		return $mode === 'disable' ? self::run_fluent_smtp_simulation_off() : self::run_fluent_smtp_simulation_on();
 	}
 
 
