@@ -22,12 +22,12 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
-            ${{ secrets.KINSTA_SSH_KEY }}
+            ${{ secrets.KINSTAPROD_SSH_KEY }}
 
       - name: Add known_hosts
         env:
-          SSH_HOST: ${{ secrets.KINSTA_HOST }}
-          SSH_PORT: ${{ secrets.KINSTA_PORT }}
+          SSH_HOST: ${{ secrets.KINSTAPROD_HOST }}
+          SSH_PORT: ${{ secrets.KINSTAPROD_PORT }}
         run: |
           mkdir -p ~/.ssh
           if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
@@ -36,10 +36,10 @@ jobs:
 
       - name: Rsync plugin to production
         env:
-          SSH_HOST: ${{ secrets.KINSTA_HOST }}
-          SSH_USER: ${{ secrets.KINSTA_USER }}
-          SSH_PORT: ${{ secrets.KINSTA_PORT }}
-          KINSTA_PLUGINS_BASE: ${{ secrets.KINSTA_PLUGINS_BASE }}
+          SSH_HOST: ${{ secrets.KINSTAPROD_HOST }}
+          SSH_USER: ${{ secrets.KINSTAPROD_USER }}
+          SSH_PORT: ${{ secrets.KINSTAPROD_PORT }}
+          KINSTA_PLUGINS_BASE: ${{ secrets.KINSTAPROD_PLUGINS_BASE }}
           REMOTE_BASE_PATH: ${{ secrets.REMOTE_BASE_PATH }}
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
           PLUGIN_SUBDIR: wp-content/plugins/dev-config-plugin
