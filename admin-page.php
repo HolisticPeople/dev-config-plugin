@@ -23,20 +23,39 @@ settings_errors('dev_cfg');
 		<?php wp_nonce_field('dev_cfg_apply'); ?>
 
 		<h2>Plugins</h2>
-		<table class="widefat fixed striped">
+
+		<div style="margin:8px 0 12px 0; display:flex; gap:12px; align-items:center;">
+			<label>Filter by status:
+				<select id="dev-cfg-filter-status">
+					<option value="any">Any</option>
+					<option value="active">Active</option>
+					<option value="inactive">Inactive</option>
+				</select>
+			</label>
+			<label>Filter by policy:
+				<select id="dev-cfg-filter-policy">
+					<option value="any">Any</option>
+					<option value="enable">Enable</option>
+					<option value="disable">Disable</option>
+					<option value="ignore">Ignore</option>
+				</select>
+			</label>
+			<span style="color:#a00;">Rows highlighted indicate policy conflicts (active vs disable, inactive vs enable).</span>
+		</div>
+
+		<table id="dev-cfg-plugins" class="widefat fixed striped">
 			<thead>
 				<tr>
 					<th>Name</th>
 					<th>Status</th>
 					<th>Policy</th>
 					<th>Version</th>
-					<th>File</th>
 				</tr>
 			</thead>
 			<tbody>
 			<?php foreach ($allPlugins as $file => $data): ?>
-				<?php $active = is_plugin_active($file); $policy = isset($ui['plugin_policies'][$file]) ? $ui['plugin_policies'][$file] : 'ignore'; ?>
-				<tr>
+				<?php $active = is_plugin_active($file); $policy = isset($ui['plugin_policies'][$file]) ? $ui['plugin_policies'][$file] : 'ignore'; $mismatch = ($policy === 'enable' && !$active) || ($policy === 'disable' && $active); ?>
+				<tr data-status="<?php echo $active ? 'active' : 'inactive'; ?>" data-policy="<?php echo esc_attr($policy); ?>"<?php echo $mismatch ? ' style="background:#fde8e8;"' : ''; ?>>
 					<td><?php echo esc_html($data['Name']); ?></td>
 					<td>
 						<span style="display:inline-block;padding:2px 6px;border-radius:3px;background:<?php echo $active ? '#46b450' : '#777'; ?>;color:#fff;">
@@ -49,11 +68,30 @@ settings_errors('dev_cfg');
 						<label><input type="radio" name="dev_cfg_policy[<?php echo esc_attr($file); ?>]" value="disable" <?php checked($policy === 'disable'); ?> /> Disable</label>
 					</td>
 					<td><?php echo isset($data['Version']) ? esc_html($data['Version']) : ''; ?></td>
-					<td><code><?php echo esc_html($file); ?></code></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
 		</table>
+
+		<script type="text/javascript">
+		(function(){
+			var $ = jQuery;
+			function applyFilters(){
+				var s = $('#dev-cfg-filter-status').val();
+				var p = $('#dev-cfg-filter-policy').val();
+				$('#dev-cfg-plugins tbody tr').each(function(){
+					var rs = this.getAttribute('data-status');
+					var rp = this.getAttribute('data-policy');
+					var show = (s === 'any' || s === rs) && (p === 'any' || p === rp);
+					this.style.display = show ? '' : 'none';
+				});
+			}
+			jQuery(function(){
+				$('#dev-cfg-filter-status, #dev-cfg-filter-policy').on('change', applyFilters);
+				applyFilters();
+			});
+		})();
+		</script>
 
 		<h2 style="margin-top:24px;">Other actions</h2>
 		<table class="widefat fixed striped">
