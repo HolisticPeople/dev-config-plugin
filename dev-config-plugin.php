@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: HolisticPeople
  */
 
@@ -14,6 +14,10 @@ if (!function_exists('dev_cfg_array_get')) {
 	function dev_cfg_array_get($array, $key, $default = null) {
 		return is_array($array) && array_key_exists($key, $array) ? $array[$key] : $default;
 	}
+}
+
+if (!defined('DEV_CFG_PLUGIN_VERSION')) {
+	define('DEV_CFG_PLUGIN_VERSION', '0.1.2');
 }
 
 class DevCfgPlugin {

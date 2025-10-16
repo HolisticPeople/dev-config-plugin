@@ -22,6 +22,11 @@ class Actions {
 				'description' => 'Set wc_webhooks_disabled option or related flags (non-destructive).',
 				'runner' => [__CLASS__, 'run_wc_webhooks_off'],
 			],
+			'fluent_smtp_simulation_on' => [
+				'label' => 'FluentSMTP: Enable Email Simulation (block sends)',
+				'description' => 'Turns on FluentSMTP\'s "Disable sending all emails" setting when detected. Falls back to safe flag if structure differs.',
+				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_on'],
+			],
 		];
 	}
 
@@ -41,6 +46,50 @@ class Actions {
 		// Non-destructive: store our own flag; teams can hook this later or extend
 		update_option('dev_cfg_wc_webhooks_disabled', 1);
 		return ['ok' => true, 'message' => 'WC webhooks soft-disabled flag set'];
+	}
+
+	private static function try_update_nested(array &$arr, array $path, $value) {
+		$ref =& $arr;
+		foreach ($path as $segment) {
+			if (!is_array($ref)) { $ref = []; }
+			if (!array_key_exists($segment, $ref)) { $ref[$segment] = []; }
+			$ref =& $ref[$segment];
+		}
+		$ref = $value;
+	}
+
+	public static function run_fluent_smtp_simulation_on() {
+		$attempts = [
+			// Common/likely option structures across FluentSMTP versions
+			['option' => 'fluent_smtp_settings', 'paths' => [ ['misc', 'email_simulation'], ['email_simulation'], ['simulate_emails'], ['misc', 'disable_emails'] ]],
+			['option' => 'fluentmail_settings',   'paths' => [ ['misc', 'email_simulation'], ['email_simulation'], ['simulate_emails'], ['misc', 'disable_emails'] ]],
+			['option' => 'fluent_smtp',           'paths' => [ ['email_simulation'], ['simulate_emails'] ]],
+		];
+
+		$updatedAny = false;
+		$messages = [];
+		foreach ($attempts as $attempt) {
+			$optName = $attempt['option'];
+			$settings = get_option($optName, null);
+			if (!is_array($settings)) {
+				continue;
+			}
+			foreach ($attempt['paths'] as $path) {
+				$local = $settings; // copy for comparison
+				self::try_update_nested($settings, $path, true);
+			}
+			update_option($optName, $settings);
+			$updatedAny = true;
+			$messages[] = "updated $optName";
+		}
+
+		if (!$updatedAny) {
+			// Fallback: set our own flag so other code can honor it if needed
+			update_option('dev_cfg_smtp_simulation', 1);
+			$messages[] = 'set dev_cfg_smtp_simulation flag (could not detect FluentSMTP settings)';
+		}
+
+		return ['ok' => true, 'message' => implode('; ', $messages)];
 	}
 }
 

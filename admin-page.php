@@ -10,7 +10,7 @@ $registry = DevCfg\Actions::registry();
 settings_errors('dev_cfg');
 ?>
 <div class="wrap">
-	<h1>Dev Configuration</h1>
+	<h1>Dev Configuration <span style="font-weight:normal;color:#666;">v<?php echo esc_html(defined('DEV_CFG_PLUGIN_VERSION') ? DEV_CFG_PLUGIN_VERSION : ''); ?></span></h1>
 
 	<form method="post">
 		<?php wp_nonce_field('dev_cfg_refresh'); ?>
