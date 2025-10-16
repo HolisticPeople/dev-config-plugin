@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: HolisticPeople
  */
 
@@ -17,7 +17,7 @@ if (!function_exists('dev_cfg_array_get')) {
 }
 
 if (!defined('DEV_CFG_PLUGIN_VERSION')) {
-	define('DEV_CFG_PLUGIN_VERSION', '0.1.3');
+	define('DEV_CFG_PLUGIN_VERSION', '0.1.4');
 }
 
 class DevCfgPlugin {
@@ -119,7 +119,9 @@ class DevCfgPlugin {
 
 		// Save configuration only (non-destructive)
 		if (isset($_POST['dev_cfg_save'])) {
-			check_admin_referer('dev_cfg_save');
+			if (!isset($_POST['dev_cfg_nonce_save']) || !wp_verify_nonce($_POST['dev_cfg_nonce_save'], 'dev_cfg_save')) {
+				wp_die('Security check failed. Please try again.');
+			}
 			$policies = is_array($postedPolicies) ? $postedPolicies : dev_cfg_array_get($settings, 'plugin_policies', []);
 			$actions = is_array($postedActions) ? $postedActions : dev_cfg_array_get($settings, 'other_actions', []);
 
@@ -133,7 +135,9 @@ class DevCfgPlugin {
 		}
 
 		if (isset($_POST['dev_cfg_apply'])) {
-			check_admin_referer('dev_cfg_apply');
+			if (!isset($_POST['dev_cfg_nonce_apply']) || !wp_verify_nonce($_POST['dev_cfg_nonce_apply'], 'dev_cfg_apply')) {
+				wp_die('Security check failed. Please try again.');
+			}
 			$policies = is_array($postedPolicies) ? $postedPolicies : [];
 			$actions = is_array($postedActions) ? $postedActions : [];
 

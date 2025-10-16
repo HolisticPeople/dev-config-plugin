@@ -20,7 +20,7 @@ settings_errors('dev_cfg');
 	</form>
 
 	<form method="post">
-		<?php wp_nonce_field('dev_cfg_apply'); ?>
+		<?php wp_nonce_field('dev_cfg_apply', 'dev_cfg_nonce_apply'); ?>
 
 		<h2>Plugins</h2>
 
@@ -142,7 +142,7 @@ settings_errors('dev_cfg');
 		</table>
 
 		<p style="margin-top:16px; display:flex; gap:12px; align-items:center;">
-			<?php wp_nonce_field('dev_cfg_save'); ?>
+			<?php wp_nonce_field('dev_cfg_save', 'dev_cfg_nonce_save'); ?>
 			<button type="submit" name="dev_cfg_save" class="button">Save configuration</button>
 			<?php $is_production = function_exists('wp_get_environment_type') ? (wp_get_environment_type() === 'production') : false; ?>
 			<button type="submit" name="dev_cfg_apply" class="button button-primary"<?php if ($is_production) { echo ' onclick="return window.confirm(\'Warning: You are on LIVE/production. This will change plugin states and settings. Continue?\')"'; } ?>>Apply fresh dev configuration</button>
