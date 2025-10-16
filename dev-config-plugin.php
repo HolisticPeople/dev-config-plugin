@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.5
+ * Version: 0.1.6
  * Author: HolisticPeople
  */
 
@@ -17,7 +17,7 @@ if (!function_exists('dev_cfg_array_get')) {
 }
 
 if (!defined('DEV_CFG_PLUGIN_VERSION')) {
-	define('DEV_CFG_PLUGIN_VERSION', '0.1.5');
+	define('DEV_CFG_PLUGIN_VERSION', '0.1.6');
 }
 
 class DevCfgPlugin {
@@ -79,21 +79,21 @@ class DevCfgPlugin {
 		return $policies;
 	}
 
-private static function sanitize_other_actions($rawActions) {
+    private static function sanitize_other_actions($rawActions) {
 	$actions = [];
 	if (!is_array($rawActions)) {
 		return $actions;
 	}
-	// Special handling: FluentSMTP simulation should be a radio (on/off/none)
-	if (isset($rawActions['fluent_smtp_simulation'])) {
-		$mode = sanitize_text_field($rawActions['fluent_smtp_simulation']);
-		if ($mode === 'on') {
-			$actions['fluent_smtp_simulation_on'] = true;
-		} elseif ($mode === 'off') {
-			$actions['fluent_smtp_simulation_off'] = true;
-		}
-		unset($rawActions['fluent_smtp_simulation']);
-	}
+        // Special handling: FluentSMTP simulation should be a radio (ignore/enable/disable)
+        if (isset($rawActions['fluent_smtp_simulation'])) {
+            $mode = sanitize_text_field($rawActions['fluent_smtp_simulation']);
+            if ($mode === 'enable') {
+                $actions['fluent_smtp_simulation_on'] = true;
+            } elseif ($mode === 'disable') {
+                $actions['fluent_smtp_simulation_off'] = true;
+            }
+            unset($rawActions['fluent_smtp_simulation']);
+        }
 	foreach ($rawActions as $key => $val) {
 		$key = sanitize_key($key);
 		$actions[$key] = (bool)$val;
