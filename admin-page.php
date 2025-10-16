@@ -141,7 +141,9 @@ settings_errors('dev_cfg');
 			</tbody>
 		</table>
 
-		<p style="margin-top:16px;">
+		<p style="margin-top:16px; display:flex; gap:12px; align-items:center;">
+			<?php wp_nonce_field('dev_cfg_save'); ?>
+			<button type="submit" name="dev_cfg_save" class="button">Save configuration</button>
 			<button type="submit" name="dev_cfg_apply" class="button button-primary">Apply fresh dev configuration</button>
 		</p>
 	</form>

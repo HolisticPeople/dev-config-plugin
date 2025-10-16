@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: HolisticPeople
  */
 
@@ -17,7 +17,7 @@ if (!function_exists('dev_cfg_array_get')) {
 }
 
 if (!defined('DEV_CFG_PLUGIN_VERSION')) {
-	define('DEV_CFG_PLUGIN_VERSION', '0.1.2');
+	define('DEV_CFG_PLUGIN_VERSION', '0.1.3');
 }
 
 class DevCfgPlugin {
@@ -44,7 +44,9 @@ class DevCfgPlugin {
 	public static function get_settings() {
 		$defaults = [
 			'plugin_policies' => [],
-			'other_actions' => [],
+			'other_actions' => [
+				'noindex' => true, // default checked
+			],
 			'ui_prefs' => [
 				'preserve_refresh' => true,
 			],
@@ -112,6 +114,21 @@ class DevCfgPlugin {
 		if (isset($_POST['dev_cfg_refresh'])) {
 			check_admin_referer('dev_cfg_refresh');
 			add_settings_error('dev_cfg', 'refreshed', 'Plugin list refreshed. Selections preserved.', 'updated');
+			return;
+		}
+
+		// Save configuration only (non-destructive)
+		if (isset($_POST['dev_cfg_save'])) {
+			check_admin_referer('dev_cfg_save');
+			$policies = is_array($postedPolicies) ? $postedPolicies : dev_cfg_array_get($settings, 'plugin_policies', []);
+			$actions = is_array($postedActions) ? $postedActions : dev_cfg_array_get($settings, 'other_actions', []);
+
+			$save = self::get_settings();
+			$save['plugin_policies'] = $policies;
+			$save['other_actions'] = $actions;
+			self::update_settings($save);
+
+			add_settings_error('dev_cfg', 'saved', 'Configuration saved (no changes applied yet).', 'updated');
 			return;
 		}
 
