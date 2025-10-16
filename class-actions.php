@@ -11,6 +11,11 @@ class Actions {
 				'description' => 'Discourage search engines on this site by setting blog_public=0.',
 				'runner' => [__CLASS__, 'run_noindex'],
 			],
+			'delete_debug_logs' => [
+				'label' => 'Delete debug logs (wp-content/debug*.log)',
+				'description' => 'Removes debug.log and rotated variants from wp-content to reduce noise on staging.',
+				'runner' => [__CLASS__, 'run_delete_debug_logs'],
+			],
 			'fluent_smtp_simulation_on' => [
 				'label' => 'FluentSMTP: Enable Email Simulation (block sends)',
 				'description' => 'Turns on FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = yes).',
@@ -27,6 +32,35 @@ class Actions {
 	public static function run_noindex() {
 		update_option('blog_public', '0');
 		return ['ok' => true, 'message' => 'blog_public set to 0'];
+	}
+
+	public static function run_delete_debug_logs() {
+		$dir = defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : WP_CONTENT_DIR; // WP_CONTENT_DIR is defined by WP
+		$patterns = [
+			$dir . '/debug.log',
+			$dir . '/debug.log.*',
+			$dir . '/debug-*.log'
+		];
+		$deleted = 0; $attempted = 0; $errors = [];
+		foreach ($patterns as $pattern) {
+			$files = glob($pattern);
+			if ($files === false) { continue; }
+			foreach ($files as $file) {
+				$attempted++;
+				if (is_file($file) && is_writable($file)) {
+					if (@unlink($file)) {
+						$deleted++;
+					} else {
+						$errors[] = basename($file);
+					}
+				}
+			}
+		}
+		$changed = $deleted > 0;
+		$ok = empty($errors);
+		$message = $deleted . ' file(s) deleted';
+		if (!$ok && $errors) { $message .= '; failed: ' . implode(', ', $errors); }
+		return ['ok' => $ok, 'message' => $message, 'changed' => $changed];
 	}
 
 	private static function try_update_nested(array &$arr, array $path, $value) {
