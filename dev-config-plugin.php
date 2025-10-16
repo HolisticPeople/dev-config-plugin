@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.4
+ * Version: 0.1.5
  * Author: HolisticPeople
  */
 
@@ -17,7 +17,7 @@ if (!function_exists('dev_cfg_array_get')) {
 }
 
 if (!defined('DEV_CFG_PLUGIN_VERSION')) {
-	define('DEV_CFG_PLUGIN_VERSION', '0.1.4');
+	define('DEV_CFG_PLUGIN_VERSION', '0.1.5');
 }
 
 class DevCfgPlugin {
@@ -79,17 +79,27 @@ class DevCfgPlugin {
 		return $policies;
 	}
 
-	private static function sanitize_other_actions($rawActions) {
-		$actions = [];
-		if (!is_array($rawActions)) {
-			return $actions;
-		}
-		foreach ($rawActions as $key => $val) {
-			$key = sanitize_key($key);
-			$actions[$key] = (bool)$val;
-		}
+private static function sanitize_other_actions($rawActions) {
+	$actions = [];
+	if (!is_array($rawActions)) {
 		return $actions;
 	}
+	// Special handling: FluentSMTP simulation should be a radio (on/off/none)
+	if (isset($rawActions['fluent_smtp_simulation'])) {
+		$mode = sanitize_text_field($rawActions['fluent_smtp_simulation']);
+		if ($mode === 'on') {
+			$actions['fluent_smtp_simulation_on'] = true;
+		} elseif ($mode === 'off') {
+			$actions['fluent_smtp_simulation_off'] = true;
+		}
+		unset($rawActions['fluent_smtp_simulation']);
+	}
+	foreach ($rawActions as $key => $val) {
+		$key = sanitize_key($key);
+		$actions[$key] = (bool)$val;
+	}
+	return $actions;
+}
 
 	public static function handle_post_actions() {
 		if (!is_admin() || !current_user_can('manage_options')) {
@@ -169,75 +179,100 @@ class DevCfgPlugin {
 		}
 	}
 
-	private static function format_results_notice($results) {
-		$lines = [];
-		if (!empty($results['plugins'])) {
-			foreach ($results['plugins'] as $file => $res) {
-				$lines[] = sprintf('%s: %s', esc_html($file), esc_html($res));
+private static function format_results_notice($results) {
+	$lines = [];
+	if (!empty($results['plugins'])) {
+		foreach ($results['plugins'] as $file => $res) {
+			if (is_array($res)) {
+				$text = isset($res['result']) ? $res['result'] : '';
+			} else {
+				$text = (string)$res;
 			}
+			$lines[] = sprintf('%s: %s', esc_html($file), esc_html($text));
 		}
-		if (!empty($results['actions'])) {
-			foreach ($results['actions'] as $key => $res) {
-				$lines[] = sprintf('%s: %s', esc_html($key), esc_html($res));
-			}
-		}
-		return implode('<br>', $lines);
 	}
-
-	private static function apply_configuration($policies, $actions) {
-		$pluginResults = [];
-		$actionResults = [];
-
-		foreach ($policies as $pluginFile => $policy) {
-			if ($policy === 'ignore') {
-				$pluginResults[$pluginFile] = 'ignored';
-				continue;
+	if (!empty($results['actions'])) {
+		foreach ($results['actions'] as $key => $res) {
+			if (is_array($res)) {
+				$text = isset($res['message']) ? $res['message'] : (isset($res['result']) ? $res['result'] : '');
+			} else {
+				$text = (string)$res;
 			}
-			$pluginPath = WP_PLUGIN_DIR . '/' . $pluginFile;
-			if (!file_exists($pluginPath)) {
-				$pluginResults[$pluginFile] = 'file missing';
-				continue;
-			}
-			if ($policy === 'enable') {
+			$lines[] = sprintf('%s: %s', esc_html($key), esc_html($text));
+		}
+	}
+	return implode('<br>', $lines);
+}
+
+private static function apply_configuration($policies, $actions) {
+	$pluginResults = [];
+	$actionResults = [];
+
+	foreach ($policies as $pluginFile => $policy) {
+		if ($policy === 'ignore') {
+			$pluginResults[$pluginFile] = ['result' => 'ignored', 'changed' => false];
+			continue;
+		}
+		$pluginPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+		if (!file_exists($pluginPath)) {
+			$pluginResults[$pluginFile] = ['result' => 'file missing', 'changed' => false];
+			continue;
+		}
+		$before = is_plugin_active($pluginFile);
+		if ($policy === 'enable') {
+			if ($before) {
+				$pluginResults[$pluginFile] = ['result' => 'already active', 'changed' => false];
+			} else {
 				$res = activate_plugin($pluginFile);
 				if (is_wp_error($res)) {
-					$pluginResults[$pluginFile] = 'activate error: ' . $res->get_error_message();
+					$pluginResults[$pluginFile] = ['result' => 'activate error: ' . $res->get_error_message(), 'changed' => false];
 				} else {
-					$pluginResults[$pluginFile] = 'activated';
+					$after = is_plugin_active($pluginFile);
+					$pluginResults[$pluginFile] = ['result' => $after ? 'activated' : 'activation uncertain', 'changed' => $after != $before];
 				}
-			} elseif ($policy === 'disable') {
+			}
+		} elseif ($policy === 'disable') {
+			if (!$before) {
+				$pluginResults[$pluginFile] = ['result' => 'already inactive', 'changed' => false];
+			} else {
 				deactivate_plugins([$pluginFile], true);
-				$pluginResults[$pluginFile] = is_plugin_active($pluginFile) ? 'deactivation failed' : 'deactivated';
+				$after = is_plugin_active($pluginFile);
+				$pluginResults[$pluginFile] = ['result' => $after ? 'deactivation failed' : 'deactivated', 'changed' => $after != $before];
 			}
 		}
-
-		require_once __DIR__ . '/class-actions.php';
-		$registry = DevCfg\Actions::registry();
-		foreach ($actions as $key => $enabled) {
-			if (!$enabled) {
-				continue;
-			}
-			if (!isset($registry[$key]) || !is_callable($registry[$key]['runner'])) {
-				$actionResults[$key] = 'unknown action';
-				continue;
-			}
-			try {
-				$out = call_user_func($registry[$key]['runner']);
-				if (is_array($out) && isset($out['ok'])) {
-					$actionResults[$key] = $out['ok'] ? ($out['message'] ?? 'ok') : ('failed' . (!empty($out['message']) ? ': ' . $out['message'] : ''));
-				} else {
-					$actionResults[$key] = 'ok';
-				}
-			} catch (Throwable $e) {
-				$actionResults[$key] = 'error: ' . $e->getMessage();
-			}
-		}
-
-		return [
-			'plugins' => $pluginResults,
-			'actions' => $actionResults,
-		];
 	}
+
+	require_once __DIR__ . '/class-actions.php';
+	$registry = DevCfg\Actions::registry();
+	foreach ($actions as $key => $enabled) {
+		if (!$enabled) {
+			continue;
+		}
+		if (!isset($registry[$key]) || !is_callable($registry[$key]['runner'])) {
+			$actionResults[$key] = ['result' => 'unknown action', 'changed' => false];
+			continue;
+		}
+		try {
+			$out = call_user_func($registry[$key]['runner']);
+			if (is_array($out) && isset($out['ok'])) {
+				$actionResults[$key] = [
+					'result'  => $out['ok'] ? ($out['message'] ?? 'ok') : ('failed' . (!empty($out['message']) ? ': ' . $out['message'] : '')),
+					'changed' => isset($out['changed']) ? (bool)$out['changed'] : true,
+					'message' => $out['message'] ?? ''
+				];
+			} else {
+				$actionResults[$key] = ['result' => 'ok', 'changed' => true];
+			}
+		} catch (Throwable $e) {
+			$actionResults[$key] = ['result' => 'error: ' . $e->getMessage(), 'changed' => false];
+		}
+	}
+
+	return [
+		'plugins' => $pluginResults,
+		'actions' => $actionResults,
+	];
+}
 
 	public static function render_page() {
 		if (!current_user_can('manage_options')) {

@@ -44,28 +44,30 @@ class Actions {
 		$optName = 'fluentmail-settings';
 		$settings = get_option($optName, []);
 		if (!is_array($settings)) {
-			return ['ok' => false, 'message' => 'fluentmail-settings option not found'];
+			return ['ok' => false, 'message' => 'fluentmail-settings option not found', 'changed' => false];
 		}
 		if (!isset($settings['misc']) || !is_array($settings['misc'])) {
 			$settings['misc'] = [];
 		}
+		$before = isset($settings['misc']['simulate_emails']) ? $settings['misc']['simulate_emails'] : '';
 		$settings['misc']['simulate_emails'] = 'yes';
 		update_option($optName, $settings);
-		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to yes'];
+		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to yes', 'changed' => ($before !== 'yes')];
 	}
 
 	public static function run_fluent_smtp_simulation_off() {
 		$optName = 'fluentmail-settings';
 		$settings = get_option($optName, []);
 		if (!is_array($settings)) {
-			return ['ok' => false, 'message' => 'fluentmail-settings option not found'];
+			return ['ok' => false, 'message' => 'fluentmail-settings option not found', 'changed' => false];
 		}
 		if (!isset($settings['misc']) || !is_array($settings['misc'])) {
 			$settings['misc'] = [];
 		}
+		$before = isset($settings['misc']['simulate_emails']) ? $settings['misc']['simulate_emails'] : '';
 		$settings['misc']['simulate_emails'] = 'no';
 		update_option($optName, $settings);
-		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to no'];
+		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to no', 'changed' => ($before !== 'no')];
 	}
 }
 
