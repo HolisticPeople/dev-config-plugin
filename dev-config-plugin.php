@@ -46,7 +46,7 @@ class DevCfgPlugin {
 			'plugin_policies' => [],
 			'other_actions' => [
 				'noindex' => true, // default checked
-				'fluent_smtp_simulation_on' => true, // default checked
+				'fluent_smtp_simulation' => 'enable', // default radio selection
 			],
 			'ui_prefs' => [
 				'preserve_refresh' => true,
