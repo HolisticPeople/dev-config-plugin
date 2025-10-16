@@ -17,7 +17,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          # Use provided ref; default to main. Force full fetch to avoid master default
+          ref: ${{ github.event.inputs.ref || 'main' }}
           fetch-depth: 0
           persist-credentials: false
 
