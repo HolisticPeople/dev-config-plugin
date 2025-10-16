@@ -49,14 +49,28 @@ settings_errors('dev_cfg');
 					<th>Name</th>
 					<th>Status</th>
 					<th>Policy</th>
-					<th>Version</th>
 				</tr>
 			</thead>
 			<tbody>
 			<?php foreach ($allPlugins as $file => $data): ?>
-				<?php $active = is_plugin_active($file); $policy = isset($ui['plugin_policies'][$file]) ? $ui['plugin_policies'][$file] : 'ignore'; $mismatch = ($policy === 'enable' && !$active) || ($policy === 'disable' && $active); ?>
+				<?php 
+					$active = is_plugin_active($file);
+					$policy = isset($ui['plugin_policies'][$file]) ? $ui['plugin_policies'][$file] : 'ignore';
+					$mismatch = ($policy === 'enable' && !$active) || ($policy === 'disable' && $active);
+					$author = '';
+					if (!empty($data['AuthorName'])) { $author = $data['AuthorName']; }
+					elseif (!empty($data['Author'])) { $author = wp_strip_all_tags($data['Author']); }
+					$version = isset($data['Version']) ? $data['Version'] : '';
+				?>
 				<tr data-status="<?php echo $active ? 'active' : 'inactive'; ?>" data-policy="<?php echo esc_attr($policy); ?>"<?php echo $mismatch ? ' style="background:#fde8e8;"' : ''; ?>>
-					<td><?php echo esc_html($data['Name']); ?></td>
+					<td>
+						<?php 
+							$label = $data['Name'];
+							if ($author !== '') { $label .= ' (' . $author . ')'; }
+							if ($version !== '') { $label .= ' - ' . $version; }
+							echo esc_html($label);
+						?>
+					</td>
 					<td>
 						<span style="display:inline-block;padding:2px 6px;border-radius:3px;background:<?php echo $active ? '#46b450' : '#777'; ?>;color:#fff;">
 							<?php echo $active ? 'Active' : 'Inactive'; ?>
@@ -67,7 +81,6 @@ settings_errors('dev_cfg');
 						<label style="margin-right:8px;"><input type="radio" name="dev_cfg_policy[<?php echo esc_attr($file); ?>]" value="enable" <?php checked($policy === 'enable'); ?> /> Enable</label>
 						<label><input type="radio" name="dev_cfg_policy[<?php echo esc_attr($file); ?>]" value="disable" <?php checked($policy === 'disable'); ?> /> Disable</label>
 					</td>
-					<td><?php echo isset($data['Version']) ? esc_html($data['Version']) : ''; ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
@@ -86,8 +99,21 @@ settings_errors('dev_cfg');
 					this.style.display = show ? '' : 'none';
 				});
 			}
+
+			function evaluateRow(row){
+				var rs = row.getAttribute('data-status');
+				var rp = row.getAttribute('data-policy');
+				var mismatch = (rp === 'enable' && rs === 'inactive') || (rp === 'disable' && rs === 'active');
+				row.style.background = mismatch ? '#fde8e8' : '';
+			}
 			jQuery(function(){
 				$('#dev-cfg-filter-status, #dev-cfg-filter-policy').on('change', applyFilters);
+				$('#dev-cfg-plugins').on('change', 'input[name^="dev_cfg_policy["]', function(){
+					var row = $(this).closest('tr')[0];
+					row.setAttribute('data-policy', this.value);
+					evaluateRow(row);
+					applyFilters();
+				});
 				applyFilters();
 			});
 		})();
