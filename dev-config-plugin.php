@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dev Configuration Tools
  * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
- * Version: 0.1.6
+ * Version: 0.1.7
  * Author: HolisticPeople
  */
 
@@ -17,7 +17,7 @@ if (!function_exists('dev_cfg_array_get')) {
 }
 
 if (!defined('DEV_CFG_PLUGIN_VERSION')) {
-	define('DEV_CFG_PLUGIN_VERSION', '0.1.6');
+    define('DEV_CFG_PLUGIN_VERSION', '0.1.7');
 }
 
 class DevCfgPlugin {
@@ -80,26 +80,24 @@ class DevCfgPlugin {
 	}
 
     private static function sanitize_other_actions($rawActions) {
-	$actions = [];
-	if (!is_array($rawActions)) {
-		return $actions;
-	}
-        // Special handling: FluentSMTP simulation should be a radio (ignore/enable/disable)
+        $actions = [];
+        if (!is_array($rawActions)) {
+            return $actions;
+        }
+        // Special handling: FluentSMTP simulation radio (ignore/enable/disable)
         if (isset($rawActions['fluent_smtp_simulation'])) {
             $mode = sanitize_text_field($rawActions['fluent_smtp_simulation']);
-            if ($mode === 'enable') {
-                $actions['fluent_smtp_simulation_on'] = true;
-            } elseif ($mode === 'disable') {
-                $actions['fluent_smtp_simulation_off'] = true;
+            if ($mode === 'enable' || $mode === 'disable') {
+                $actions['fluent_smtp_simulation'] = $mode; // pass mode to runner
             }
             unset($rawActions['fluent_smtp_simulation']);
         }
-	foreach ($rawActions as $key => $val) {
-		$key = sanitize_key($key);
-		$actions[$key] = (bool)$val;
-	}
-	return $actions;
-}
+        foreach ($rawActions as $key => $val) {
+            $key = sanitize_key($key);
+            $actions[$key] = (bool)$val;
+        }
+        return $actions;
+    }
 
 	public static function handle_post_actions() {
 		if (!is_admin() || !current_user_can('manage_options')) {
@@ -160,12 +158,21 @@ class DevCfgPlugin {
 			$results = self::apply_configuration($policies, $actions);
 			$summary = self::format_results_notice($results);
 			// Build popup summary counts
-			$enabledCount = 0; $disabledCount = 0; $pluginFailed = 0;
-			foreach (dev_cfg_array_get($results, 'plugins', []) as $res) {
-				if ($res === 'activated') { $enabledCount++; }
-				elseif ($res === 'deactivated') { $disabledCount++; }
-				elseif (is_string($res) && (stripos($res, 'error') !== false || stripos($res, 'failed') !== false || stripos($res, 'missing') !== false)) { $pluginFailed++; }
-			}
+            $enabledCount = 0; $disabledCount = 0; $pluginFailed = 0;
+            foreach (dev_cfg_array_get($results, 'plugins', []) as $res) {
+                if (is_array($res)) {
+                    if (!empty($res['changed'])) {
+                        if ($res['result'] === 'activated') { $enabledCount++; }
+                        if ($res['result'] === 'deactivated') { $disabledCount++; }
+                    }
+                    $msg = isset($res['result']) ? $res['result'] : '';
+                    if (stripos($msg, 'error') !== false || stripos($msg, 'failed') !== false || stripos($msg, 'missing') !== false) { $pluginFailed++; }
+                } else {
+                    if ($res === 'activated') { $enabledCount++; }
+                    elseif ($res === 'deactivated') { $disabledCount++; }
+                    elseif (is_string($res) && (stripos($res, 'error') !== false || stripos($res, 'failed') !== false || stripos($res, 'missing') !== false)) { $pluginFailed++; }
+                }
+            }
 			$actionsOk = 0; $actionsFailed = 0; $actionLines = [];
 			foreach (dev_cfg_array_get($results, 'actions', []) as $key => $res) {
 				$msg = is_array($res) ? ($res['message'] ?? $res['result']) : (string)$res;
@@ -247,7 +254,7 @@ private static function apply_configuration($policies, $actions) {
 
 	require_once __DIR__ . '/class-actions.php';
 	$registry = DevCfg\Actions::registry();
-	foreach ($actions as $key => $enabled) {
+    foreach ($actions as $key => $enabled) {
 		if (!$enabled) {
 			continue;
 		}
@@ -256,7 +263,12 @@ private static function apply_configuration($policies, $actions) {
 			continue;
 		}
 		try {
-			$out = call_user_func($registry[$key]['runner']);
+            // If the action value is a string (mode), pass it to the runner
+            if (is_string($enabled)) {
+                $out = call_user_func($registry[$key]['runner'], $enabled);
+            } else {
+                $out = call_user_func($registry[$key]['runner']);
+            }
 			if (is_array($out) && isset($out['ok'])) {
 				$actionResults[$key] = [
 					'result'  => $out['ok'] ? ($out['message'] ?? 'ok') : ('failed' . (!empty($out['message']) ? ': ' . $out['message'] : '')),
