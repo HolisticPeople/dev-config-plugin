@@ -138,7 +138,7 @@ settings_errors('dev_cfg');
 					<td><strong><?php echo esc_html($meta['label']); ?></strong> <code><?php echo esc_html($key); ?></code></td>
 					<td><?php echo esc_html($meta['description']); ?></td>
 					<td>
-						<?php if ($key === 'fluent_smtp_simulation'): ?>
+						<?php if ($key === 'fluent_smtp_simulation_on' || $key === 'fluent_smtp_simulation_off'): ?>
 							<?php
 								$mode = '';
 								if (!empty($ui['other_actions']['fluent_smtp_simulation_on'])) { $mode = 'enable'; }

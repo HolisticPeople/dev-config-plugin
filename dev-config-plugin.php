@@ -168,8 +168,11 @@ class DevCfgPlugin {
 			}
 			$actionsOk = 0; $actionsFailed = 0; $actionLines = [];
 			foreach (dev_cfg_array_get($results, 'actions', []) as $key => $res) {
-				$actionLines[] = $key . ': ' . $res;
-				if (is_string($res) && (stripos($res, 'error') !== false || stripos($res, 'failed') !== false)) { $actionsFailed++; } else { $actionsOk++; }
+				$msg = is_array($res) ? ($res['message'] ?? $res['result']) : (string)$res;
+				$actionLines[] = $key . ': ' . $msg;
+				$isError = stripos($msg, 'error') !== false || stripos($msg, 'failed') !== false;
+				if (!empty($res['changed']) && !$isError) { $actionsOk++; }
+				if ($isError) { $actionsFailed++; }
 			}
 			$popup = "Plugins enabled: $enabledCount\nPlugins disabled: $disabledCount\nPlugin failures: $pluginFailed\nActions success: $actionsOk, failed: $actionsFailed";
 			if ($actionLines) { $popup .= "\n\nActions detail:\n" . implode("\n", $actionLines); }

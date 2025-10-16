@@ -11,10 +11,15 @@ class Actions {
 				'description' => 'Discourage search engines on this site by setting blog_public=0.',
 				'runner' => [__CLASS__, 'run_noindex'],
 			],
-			'fluent_smtp_simulation' => [
-				'label' => 'FluentSMTP Email Simulation',
-				'description' => 'Control FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails).',
-				'runner' => [__CLASS__, 'run_fluent_smtp_simulation'],
+			'fluent_smtp_simulation_on' => [
+				'label' => 'FluentSMTP: Enable Email Simulation (block sends)',
+				'description' => 'Turns on FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = yes).',
+				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_on'],
+			],
+			'fluent_smtp_simulation_off' => [
+				'label' => 'FluentSMTP: Disable Email Simulation (allow sends)',
+				'description' => 'Turns off FluentSMTP\'s "Disable sending all emails" (misc.simulate_emails = no).',
+				'runner' => [__CLASS__, 'run_fluent_smtp_simulation_off'],
 			],
 		];
 	}
@@ -65,15 +70,7 @@ class Actions {
 		return ['ok' => true, 'message' => 'FluentSMTP simulate_emails set to no', 'changed' => ($before !== 'no')];
 	}
 
-	public static function run_fluent_smtp_simulation($mode = null) {
-		if ($mode === null && isset($_POST['dev_cfg_action']['fluent_smtp_simulation_mode'])) {
-			$mode = sanitize_text_field($_POST['dev_cfg_action']['fluent_smtp_simulation_mode']);
-		}
-		if ($mode !== 'enable' && $mode !== 'disable') {
-			return ['ok' => true, 'message' => 'FluentSMTP simulation ignored', 'changed' => false];
-		}
-		return $mode === 'enable' ? self::run_fluent_smtp_simulation_on() : self::run_fluent_smtp_simulation_off();
-	}
+
 }
 
 
