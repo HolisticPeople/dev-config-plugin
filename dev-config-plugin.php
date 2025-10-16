@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Dev Configuration Tools
- * Description: Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions. Manual apply; no auto-enforcement.
- * Version: 0.1.0
- * Author: Team
+ * Description: One-click dev/staging setup under Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions (e.g., noindex). Changes apply only when you click Apply; no auto-enforcement.
+ * Version: 0.1.1
+ * Author: HolisticPeople
  */
 
 if (!defined('ABSPATH')) {
@@ -23,6 +23,8 @@ class DevCfgPlugin {
 	public static function init() {
 		add_action('admin_menu', [__CLASS__, 'register_tools_page']);
 		add_action('admin_init', [__CLASS__, 'handle_post_actions']);
+		// Add Settings link in Plugins list
+		add_filter('plugin_action_links_' . plugin_basename(__FILE__), [__CLASS__, 'plugin_action_links']);
 	}
 
 	public static function register_tools_page() {
@@ -214,6 +216,12 @@ class DevCfgPlugin {
 		$allPlugins = get_plugins();
 
 		require_once __DIR__ . '/admin-page.php';
+	}
+
+	public static function plugin_action_links($links) {
+		$url = admin_url('tools.php?page=' . self::MENU_SLUG);
+		$links[] = '<a href="' . esc_url($url) . '">Settings</a>';
+		return $links;
 	}
 }
 
