@@ -1,0 +1,222 @@
+<?php
+/**
+ * Plugin Name: Dev Configuration Tools
+ * Description: Tools → Dev Configuration. Choose plugins to force enable/disable and run predefined actions. Manual apply; no auto-enforcement.
+ * Version: 0.1.0
+ * Author: Team
+ */
+
+if (!defined('ABSPATH')) {
+	exit;
+}
+
+if (!function_exists('dev_cfg_array_get')) {
+	function dev_cfg_array_get($array, $key, $default = null) {
+		return is_array($array) && array_key_exists($key, $array) ? $array[$key] : $default;
+	}
+}
+
+class DevCfgPlugin {
+	const OPTION_KEY = 'dev_config_plugin_settings';
+	const MENU_SLUG = 'dev-config-tools';
+
+	public static function init() {
+		add_action('admin_menu', [__CLASS__, 'register_tools_page']);
+		add_action('admin_init', [__CLASS__, 'handle_post_actions']);
+	}
+
+	public static function register_tools_page() {
+		add_management_page(
+			'Dev Configuration',
+			'Dev Configuration',
+			'manage_options',
+			self::MENU_SLUG,
+			[__CLASS__, 'render_page']
+		);
+	}
+
+	public static function get_settings() {
+		$defaults = [
+			'plugin_policies' => [],
+			'other_actions' => [],
+			'ui_prefs' => [
+				'preserve_refresh' => true,
+			],
+		];
+		$settings = get_option(self::OPTION_KEY, []);
+		if (!is_array($settings)) {
+			$settings = [];
+		}
+		return array_replace_recursive($defaults, $settings);
+	}
+
+	public static function update_settings($settings) {
+		update_option(self::OPTION_KEY, $settings);
+	}
+
+	private static function sanitize_policies($rawPolicies) {
+		$policies = [];
+		if (!is_array($rawPolicies)) {
+			return $policies;
+		}
+		foreach ($rawPolicies as $pluginFile => $policy) {
+			$pluginFile = sanitize_text_field($pluginFile);
+			$policy = sanitize_text_field($policy);
+			if (!in_array($policy, ['enable', 'disable', 'ignore'], true)) {
+				$policy = 'ignore';
+			}
+			$policies[$pluginFile] = $policy;
+		}
+		return $policies;
+	}
+
+	private static function sanitize_other_actions($rawActions) {
+		$actions = [];
+		if (!is_array($rawActions)) {
+			return $actions;
+		}
+		foreach ($rawActions as $key => $val) {
+			$key = sanitize_key($key);
+			$actions[$key] = (bool)$val;
+		}
+		return $actions;
+	}
+
+	public static function handle_post_actions() {
+		if (!is_admin() || !current_user_can('manage_options')) {
+			return;
+		}
+		if (!isset($_GET['page']) || $_GET['page'] !== self::MENU_SLUG) {
+			return;
+		}
+
+		if (!function_exists('get_plugins')) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$settings = self::get_settings();
+		$postedPolicies = isset($_POST['dev_cfg_policy']) ? self::sanitize_policies($_POST['dev_cfg_policy']) : null;
+		$postedActions = isset($_POST['dev_cfg_action']) ? self::sanitize_other_actions($_POST['dev_cfg_action']) : null;
+		$uiSelections = [
+			'plugin_policies' => is_array($postedPolicies) ? $postedPolicies : dev_cfg_array_get($settings, 'plugin_policies', []),
+			'other_actions' => is_array($postedActions) ? $postedActions : dev_cfg_array_get($settings, 'other_actions', []),
+		];
+		$GLOBALS['dev_cfg_ui_selections'] = $uiSelections;
+
+		if (isset($_POST['dev_cfg_refresh'])) {
+			check_admin_referer('dev_cfg_refresh');
+			add_settings_error('dev_cfg', 'refreshed', 'Plugin list refreshed. Selections preserved.', 'updated');
+			return;
+		}
+
+		if (isset($_POST['dev_cfg_apply'])) {
+			check_admin_referer('dev_cfg_apply');
+			$policies = is_array($postedPolicies) ? $postedPolicies : [];
+			$actions = is_array($postedActions) ? $postedActions : [];
+
+			$save = self::get_settings();
+			$save['plugin_policies'] = $policies;
+			$save['other_actions'] = $actions;
+			self::update_settings($save);
+
+			$results = self::apply_configuration($policies, $actions);
+			$summary = self::format_results_notice($results);
+			add_settings_error('dev_cfg', 'applied', $summary, 'updated');
+		}
+	}
+
+	private static function format_results_notice($results) {
+		$lines = [];
+		if (!empty($results['plugins'])) {
+			foreach ($results['plugins'] as $file => $res) {
+				$lines[] = sprintf('%s: %s', esc_html($file), esc_html($res));
+			}
+		}
+		if (!empty($results['actions'])) {
+			foreach ($results['actions'] as $key => $res) {
+				$lines[] = sprintf('%s: %s', esc_html($key), esc_html($res));
+			}
+		}
+		return implode('<br>', $lines);
+	}
+
+	private static function apply_configuration($policies, $actions) {
+		$pluginResults = [];
+		$actionResults = [];
+
+		foreach ($policies as $pluginFile => $policy) {
+			if ($policy === 'ignore') {
+				$pluginResults[$pluginFile] = 'ignored';
+				continue;
+			}
+			$pluginPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+			if (!file_exists($pluginPath)) {
+				$pluginResults[$pluginFile] = 'file missing';
+				continue;
+			}
+			if ($policy === 'enable') {
+				$res = activate_plugin($pluginFile);
+				if (is_wp_error($res)) {
+					$pluginResults[$pluginFile] = 'activate error: ' . $res->get_error_message();
+				} else {
+					$pluginResults[$pluginFile] = 'activated';
+				}
+			} elseif ($policy === 'disable') {
+				deactivate_plugins([$pluginFile], true);
+				$pluginResults[$pluginFile] = is_plugin_active($pluginFile) ? 'deactivation failed' : 'deactivated';
+			}
+		}
+
+		require_once __DIR__ . '/class-actions.php';
+		$registry = DevCfg\Actions::registry();
+		foreach ($actions as $key => $enabled) {
+			if (!$enabled) {
+				continue;
+			}
+			if (!isset($registry[$key]) || !is_callable($registry[$key]['runner'])) {
+				$actionResults[$key] = 'unknown action';
+				continue;
+			}
+			try {
+				$out = call_user_func($registry[$key]['runner']);
+				if (is_array($out) && isset($out['ok'])) {
+					$actionResults[$key] = $out['ok'] ? ($out['message'] ?? 'ok') : ('failed' . (!empty($out['message']) ? ': ' . $out['message'] : ''));
+				} else {
+					$actionResults[$key] = 'ok';
+				}
+			} catch (Throwable $e) {
+				$actionResults[$key] = 'error: ' . $e->getMessage();
+			}
+		}
+
+		return [
+			'plugins' => $pluginResults,
+			'actions' => $actionResults,
+		];
+	}
+
+	public static function render_page() {
+		if (!current_user_can('manage_options')) {
+			wp_die('Insufficient permissions');
+		}
+
+		$settings = self::get_settings();
+		$ui = isset($GLOBALS['dev_cfg_ui_selections']) && is_array($GLOBALS['dev_cfg_ui_selections'])
+			? $GLOBALS['dev_cfg_ui_selections']
+			: [
+				'plugin_policies' => dev_cfg_array_get($settings, 'plugin_policies', []),
+				'other_actions' => dev_cfg_array_get($settings, 'other_actions', []),
+			];
+
+		if (!function_exists('get_plugins')) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$allPlugins = get_plugins();
+
+		require_once __DIR__ . '/admin-page.php';
+	}
+}
+
+DevCfgPlugin::init();
+
+
