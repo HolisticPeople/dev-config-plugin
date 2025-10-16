@@ -22,12 +22,12 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
+            ${{ secrets.KINSTA_SSH_KEY }}
 
       - name: Add known_hosts
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_HOST: ${{ secrets.KINSTA_HOST }}
+          SSH_PORT: ${{ secrets.KINSTA_PORT }}
         run: |
           mkdir -p ~/.ssh
           if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
@@ -36,15 +36,25 @@ jobs:
 
       - name: Rsync plugin to production
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_HOST: ${{ secrets.KINSTA_HOST }}
+          SSH_USER: ${{ secrets.KINSTA_USER }}
+          SSH_PORT: ${{ secrets.KINSTA_PORT }}
+          KINSTA_PLUGINS_BASE: ${{ secrets.KINSTA_PLUGINS_BASE }}
           REMOTE_BASE_PATH: ${{ secrets.REMOTE_BASE_PATH }}
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
           PLUGIN_SUBDIR: wp-content/plugins/dev-config-plugin
         run: |
           if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
-          if [ -z "$REMOTE_PATH" ]; then DEST="$REMOTE_BASE_PATH/$PLUGIN_SUBDIR"; else DEST="$REMOTE_PATH"; fi
+          if [ -n "$REMOTE_PATH" ]; then
+            DEST="$REMOTE_PATH"
+          elif [ -n "$REMOTE_BASE_PATH" ]; then
+            DEST="$REMOTE_BASE_PATH/$PLUGIN_SUBDIR"
+          elif [ -n "$KINSTA_PLUGINS_BASE" ]; then
+            DEST="$KINSTA_PLUGINS_BASE/dev-config-plugin"
+          else
+            echo "No destination path configured. Set REMOTE_PATH or REMOTE_BASE_PATH or KINSTA_PLUGINS_BASE." >&2
+            exit 1
+          fi
           rsync -az --delete \
             -e "ssh -p $SSH_PORT" \
             --exclude ".git" \
