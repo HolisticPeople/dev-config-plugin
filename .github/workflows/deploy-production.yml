@@ -7,8 +7,7 @@ on:
         description: 'Branch or tag to deploy (default: main)'
         required: false
         default: 'main'
-  push:
-    branches: [] # no-op but keeps the workflow valid for inputs context
+  # no push trigger; run manually via workflow_dispatch
 
 jobs:
   deploy:
@@ -18,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0 # allow tags/branches
 
       - name: Set up SSH key
